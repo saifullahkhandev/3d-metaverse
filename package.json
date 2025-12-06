@@ -1,0 +1,27 @@
+{
+  "name": "nextbase-ultimate",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "pnpm@9.0.6",
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "web#dev": "turbo run dev --filter=web",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "gen-types": "turbo run gen-types --filter=database",
+    "gen-types-local": "turbo run gen-types-local --filter=database",
+    "database#start": "turbo run database#start",
+    "database#stop": "turbo run database#stop",
+    "database#status": "turbo run database#status",
+    "test-integration": "turbo run test-integration --filter=web",
+    "test-integration-ui": "turbo run test-integration-ui --filter=web",
+    "build-and-test-integration": "turbo run build-and-test-integration"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.3.4",
+    "turbo": "^2.2.3",
+    "ultracite": "6.3.2"
+  }
+}

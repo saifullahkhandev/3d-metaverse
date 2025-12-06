@@ -1,0 +1,22 @@
+.env
+.env.local
+.env.*.local
+node_modules
+.next
+tsconfig.tsbuildinfo
+.vercel
+playwright/.auth
+supabase/.temp
+
+analyze
+
+# Local Netlify folder
+.netlify
+.DS_Store
+# content-collections
+.content-collections
+
+.turbo
+
+test-results
+supabase/signing_key.json
