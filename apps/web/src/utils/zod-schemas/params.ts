@@ -22,3 +22,8 @@ export const projectParamSchema = z.object({
 export const projectSlugParamSchema = z.object({
   projectSlug: z.string(),
 });
+
+export const spaceParamSchema = z.object({
+  workspaceSlug: z.string(),
+  spaceSlug: z.string(),
+});

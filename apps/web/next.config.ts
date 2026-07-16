@@ -15,6 +15,7 @@ export default async function config(
 ) {
   const nextConfig: NextConfig = {
     pageExtensions: ["js", "jsx", "ts", "tsx", "md", "mdx"],
+    transpilePackages: ["three"],
     images: {
       remotePatterns: [
         {
