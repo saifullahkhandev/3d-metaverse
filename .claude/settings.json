@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx ultracite fix"
+            "command": "f=$(jq -r '.tool_input.file_path // empty'); if [ -n \"$f\" ] && [ -f \"$f\" ]; then npx ultracite fix \"$f\" 2>/dev/null || true; fi"
           }
         ]
       }

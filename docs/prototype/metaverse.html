@@ -1,0 +1,1570 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    >
+    <title>Commons — a 3D spatial world</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    >
+    <style>
+    :root {
+      --ink: #1f2438;
+      --panel: rgba(255, 255, 255, 0.82);
+      --panel-solid: #fffdf8;
+      --line: rgba(31, 36, 56, 0.1);
+      --coral: #ef6f5b;
+      --sky1: #ffd9a8;
+      --sky2: #f8b4c0;
+      --sky3: #a6c8e8;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    html,
+    body {
+      height: 100%;
+      overflow: hidden;
+      background: #0e1020;
+      color: var(--ink);
+      font-family: "Inter", system-ui, sans-serif;
+    }
+    #app {
+      position: fixed;
+      inset: 0;
+    }
+    canvas {
+      display: block;
+    }
+
+    /* --- Loading --- */
+    #boot {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(
+        160deg,
+        var(--sky1),
+        var(--sky2) 55%,
+        var(--sky3)
+      );
+      transition: opacity 0.6s ease;
+    }
+    #boot.hide {
+      opacity: 0;
+      pointer-events: none;
+    }
+    #boot .card {
+      text-align: center;
+      color: #3a2f3f;
+    }
+    #boot h1 {
+      font-family: "Fraunces", serif;
+      font-weight: 600;
+      font-size: 34px;
+      letter-spacing: -0.5px;
+    }
+    #boot p {
+      margin-top: 8px;
+      font-size: 14px;
+      opacity: 0.7;
+    }
+    #boot .dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #3a2f3f;
+      margin: 14px 4px 0;
+      animation: bob 1s ease-in-out infinite;
+    }
+    #boot .dot:nth-child(2) {
+      animation-delay: 0.15s;
+    }
+    #boot .dot:nth-child(3) {
+      animation-delay: 0.3s;
+    }
+    @keyframes bob {
+      0%,
+      100% {
+        transform: translateY(0);
+        opacity: 0.4;
+      }
+      50% {
+        transform: translateY(-7px);
+        opacity: 1;
+      }
+    }
+
+    /* --- HUD shell --- */
+    .hud {
+      position: fixed;
+      z-index: 20;
+      pointer-events: none;
+    }
+    .panel {
+      background: var(--panel);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(20, 20, 40, 0.14);
+    }
+
+    /* top-left identity */
+    #brand {
+      top: 16px;
+      left: 16px;
+      padding: 12px 16px;
+    }
+    #brand .logo {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+    #brand .mark {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: var(--coral);
+      box-shadow: 0 0 0 4px rgba(239, 111, 91, 0.18);
+    }
+    #brand h2 {
+      font-family: "Fraunces", serif;
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+    }
+    #brand .sub {
+      font-size: 11.5px;
+      color: #6b6f80;
+      margin-top: 2px;
+    }
+    #nameRow {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 10px;
+      pointer-events: auto;
+    }
+    #nameRow input {
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--ink);
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 9px;
+      padding: 5px 9px;
+      width: 120px;
+      outline: none;
+    }
+    #nameRow input:focus {
+      border-color: var(--coral);
+    }
+    #nameRow span {
+      font-size: 11px;
+      color: #9599a8;
+    }
+
+    /* minimap top-right */
+    #mapWrap {
+      top: 16px;
+      right: 16px;
+      padding: 10px;
+    }
+    #mapWrap .cap {
+      font-size: 10.5px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #8b8f9e;
+      margin: 0 2px 7px;
+      font-weight: 600;
+    }
+    #minimap {
+      display: block;
+      border-radius: 10px;
+      background: #f3efe6;
+    }
+
+    /* zone banner bottom-center */
+    #zoneCard {
+      left: 50%;
+      bottom: 104px;
+      transform: translateX(-50%) translateY(14px);
+      padding: 14px 18px;
+      min-width: 240px;
+      max-width: 340px;
+      opacity: 0;
+      transition:
+        opacity 0.3s,
+        transform 0.3s;
+    }
+    #zoneCard.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    #zoneCard .z-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    #zoneCard .z-swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+    }
+    #zoneCard h3 {
+      font-family: "Fraunces", serif;
+      font-size: 17px;
+      font-weight: 600;
+    }
+    #zoneCard p {
+      font-size: 12.5px;
+      color: #5c6070;
+      margin-top: 6px;
+      line-height: 1.5;
+    }
+    #zoneCard .z-here {
+      font-size: 11.5px;
+      color: #8b8f9e;
+      margin-top: 9px;
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    #zoneCard .chip {
+      background: rgba(31, 36, 56, 0.06);
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-weight: 500;
+      color: #5c6070;
+    }
+
+    /* controls bottom-center */
+    #controls {
+      left: 50%;
+      bottom: 16px;
+      transform: translateX(-50%);
+      padding: 10px 14px;
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+    #controls .grp {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 11.5px;
+      color: #5c6070;
+    }
+    .key {
+      font-family: "Inter";
+      font-size: 10.5px;
+      font-weight: 600;
+      color: var(--ink);
+      background: #fff;
+      border: 1px solid var(--line);
+      border-bottom-width: 2px;
+      border-radius: 6px;
+      padding: 2px 6px;
+      min-width: 18px;
+      text-align: center;
+    }
+    #controls .sep {
+      width: 1px;
+      height: 20px;
+      background: var(--line);
+    }
+
+    /* interact prompt */
+    #prompt {
+      left: 50%;
+      bottom: 170px;
+      transform: translateX(-50%) scale(0.96);
+      padding: 8px 14px;
+      font-size: 12.5px;
+      color: var(--ink);
+      opacity: 0;
+      transition:
+        opacity 0.2s,
+        transform 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    #prompt.show {
+      opacity: 1;
+      transform: translateX(-50%) scale(1);
+    }
+
+    /* chat input */
+    #chatBar {
+      left: 50%;
+      bottom: 64px;
+      transform: translateX(-50%) translateY(10px);
+      padding: 6px 6px 6px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      opacity: 0;
+      pointer-events: none;
+      transition:
+        opacity 0.2s,
+        transform 0.2s;
+      width: min(420px, 86vw);
+    }
+    #chatBar.show {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(-50%) translateY(0);
+    }
+    #chatBar input {
+      flex: 1;
+      font-family: inherit;
+      font-size: 13px;
+      border: none;
+      background: transparent;
+      outline: none;
+      color: var(--ink);
+    }
+    #chatBar button {
+      pointer-events: auto;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      color: #fff;
+      background: var(--coral);
+      border: none;
+      border-radius: 10px;
+      padding: 7px 13px;
+      cursor: pointer;
+    }
+    #chatBar button:active {
+      transform: scale(0.96);
+    }
+
+    /* toast */
+    #toast {
+      left: 50%;
+      top: 20px;
+      transform: translateX(-50%) translateY(-12px);
+      padding: 10px 16px;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--ink);
+      opacity: 0;
+      transition:
+        opacity 0.25s,
+        transform 0.25s;
+      pointer-events: none;
+    }
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    @media (max-width: 560px) {
+      #brand .sub,
+      #controls {
+        display: none;
+      }
+      #mapWrap {
+        padding: 7px;
+      }
+      #minimap {
+        width: 110px;
+        height: 110px;
+      }
+    }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <div id="boot">
+      <div class="card">
+        <h1>Commons</h1>
+        <p>Warming up the world…</p>
+        <div>
+          <span class="dot"></span><span class="dot"></span><span
+            class="dot"
+          ></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- HUD -->
+    <div id="brand" class="hud panel">
+      <div class="logo">
+        <span class="mark"></span>
+        <div>
+          <h2>Commons</h2>
+          <div class="sub">a small spatial world</div>
+        </div>
+      </div>
+      <div id="nameRow">
+        <span>you are</span>
+        <input id="nameInput" maxlength="14" value="Saifullah">
+      </div>
+    </div>
+
+    <div id="mapWrap" class="hud panel">
+      <div class="cap">Map</div>
+      <canvas id="minimap" width="132" height="132"></canvas>
+    </div>
+
+    <div id="zoneCard" class="hud panel">
+      <div class="z-top">
+        <span class="z-swatch" id="zSwatch"></span>
+        <h3 id="zTitle">Zone</h3>
+      </div>
+      <p id="zDesc">description</p>
+      <div class="z-here" id="zHere"></div>
+    </div>
+
+    <div id="prompt" class="hud panel">
+      <span class="key">E</span><span id="promptText">interact</span>
+    </div>
+
+    <div id="chatBar" class="hud panel">
+      <input id="chatInput" maxlength="80" placeholder="Say something…">
+      <button id="chatSend">Send</button>
+    </div>
+
+    <div id="toast" class="hud panel"></div>
+
+    <div id="controls" class="hud panel">
+      <div class="grp">
+        <span class="key">W</span><span class="key"
+          >A</span
+        ><span class="key">S</span><span class="key">D</span>move
+      </div>
+      <div class="sep"></div>
+      <div class="grp">
+        <span class="key">drag</span>look
+      </div>
+      <div class="sep"></div>
+      <div class="grp">
+        <span class="key">⏎</span>chat
+      </div>
+      <div class="sep"></div>
+      <div class="grp">
+        <span class="key">E</span>interact
+      </div>
+    </div>
+
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"
+    ></script>
+    <script>
+    "use strict";
+    (() => {
+      const T = THREE;
+
+      // ---------- palette ----------
+      const COL = {
+        grass: 0x9d_c8_8b,
+        path: 0xf0_e6_d2,
+        plaza: 0xf6_ed_e0,
+        wall: 0xf3_de_d0,
+        wallTop: 0xe9_cb_b8,
+        wood: 0xca_a4_76,
+        woodDark: 0xa0_7d_54,
+        water: 0x7f_c4_d6,
+        leaf: 0x7b_bf_7a,
+        leafDark: 0x5a_a0_65,
+        trunk: 0x9a_6b_45,
+        meeting: 0x5b_8d_ef,
+        cafe: 0xf0_a9_4b,
+        games: 0xa0_6f_e0,
+        garden: 0x59_b8_7e,
+        skin: [0xf3_c9_a6, 0xe0_a9_7e, 0xc9_8a_5e, 0xf7_d9_bd],
+      };
+
+      // ---------- renderer / scene ----------
+      const app = document.getElementById("app");
+      const renderer = new T.WebGLRenderer({ antialias: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(innerWidth, innerHeight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = T.PCFSoftShadowMap;
+      renderer.outputEncoding = T.sRGBEncoding;
+      app.appendChild(renderer.domElement);
+
+      const scene = new T.Scene();
+      scene.background = new T.Color(0xbf_e0_e6);
+      scene.fog = new T.Fog(0xcf_e4_e6, 55, 105);
+
+      const camera = new T.PerspectiveCamera(
+        50,
+        innerWidth / innerHeight,
+        0.1,
+        300
+      );
+
+      // ---------- lights ----------
+      const hemi = new T.HemisphereLight(0xff_e9_c8, 0x8a_9a_7a, 0.85);
+      scene.add(hemi);
+      const sun = new T.DirectionalLight(0xff_f0_d6, 1.15);
+      sun.position.set(24, 40, 18);
+      sun.castShadow = true;
+      sun.shadow.mapSize.set(2048, 2048);
+      sun.shadow.camera.left = -50;
+      sun.shadow.camera.right = 50;
+      sun.shadow.camera.top = 50;
+      sun.shadow.camera.bottom = -50;
+      sun.shadow.camera.near = 1;
+      sun.shadow.camera.far = 140;
+      sun.shadow.bias = -0.0004;
+      scene.add(sun);
+      scene.add(new T.AmbientLight(0xff_ff_ff, 0.18));
+
+      // ---------- helpers ----------
+      const colliders = []; // {minX,maxX,minZ,maxZ}
+      function addCollider(cx, cz, w, d) {
+        colliders.push({
+          minX: cx - w / 2,
+          maxX: cx + w / 2,
+          minZ: cz - d / 2,
+          maxZ: cz + d / 2,
+        });
+      }
+      const mat = (c, opts = {}) =>
+        new T.MeshStandardMaterial({
+          color: c,
+          roughness: 0.9,
+          metalness: 0,
+          ...opts,
+        });
+      function box(w, h, d, c, mopts) {
+        const m = new T.Mesh(new T.BoxGeometry(w, h, d), mat(c, mopts));
+        m.castShadow = true;
+        m.receiveShadow = true;
+        return m;
+      }
+      function cyl(rt, rb, h, c, seg = 16) {
+        const m = new T.Mesh(new T.CylinderGeometry(rt, rb, h, seg), mat(c));
+        m.castShadow = true;
+        m.receiveShadow = true;
+        return m;
+      }
+      function sph(r, c, seg = 18) {
+        const m = new T.Mesh(new T.SphereGeometry(r, seg, seg), mat(c));
+        m.castShadow = true;
+        m.receiveShadow = true;
+        return m;
+      }
+
+      // ---------- ground ----------
+      const WORLD = 60; // half-extent playable ~ +-29
+      const ground = new T.Mesh(
+        new T.PlaneGeometry(WORLD, WORLD),
+        mat(COL.grass, { roughness: 1 })
+      );
+      ground.rotation.x = -Math.PI / 2;
+      ground.receiveShadow = true;
+      scene.add(ground);
+
+      // central plaza + paths (flat tiles slightly above grass)
+      function floorTile(cx, cz, w, d, c, r = 0) {
+        const m = new T.Mesh(
+          new T.PlaneGeometry(w, d),
+          mat(c, { roughness: 0.95 })
+        );
+        m.rotation.x = -Math.PI / 2;
+        m.rotation.z = r;
+        m.position.set(cx, 0.02, cz);
+        m.receiveShadow = true;
+        scene.add(m);
+        return m;
+      }
+      floorTile(0, 0, 20, 20, COL.plaza); // plaza
+      floorTile(0, -19, 7, 20, COL.path); // path north
+      floorTile(0, 19, 7, 20, COL.path); // path south
+      floorTile(-19, 0, 20, 7, COL.path); // path west
+      floorTile(19, 0, 20, 7, COL.path); // path east
+
+      // outer boundary walls
+      function wall(cx, cz, w, d) {
+        const g = new T.Group();
+        const b = box(w, 2.2, d, COL.wall);
+        b.position.y = 1.1;
+        g.add(b);
+        const top = box(w + 0.3, 0.35, d + 0.3, COL.wallTop);
+        top.position.y = 2.35;
+        g.add(top);
+        g.position.set(cx, 0, cz);
+        scene.add(g);
+        addCollider(cx, cz, w, d);
+      }
+      const B = 29.5,
+        TH = 1;
+      wall(0, -B, WORLD, TH);
+      wall(0, B, WORLD, TH);
+      wall(-B, 0, TH, WORLD);
+      wall(B, 0, TH, WORLD);
+
+      // ---------- decorative helpers ----------
+      function tree(x, z, s = 1) {
+        const g = new T.Group();
+        const tr = cyl(0.35 * s, 0.45 * s, 2 * s, COL.trunk, 8);
+        tr.position.y = 1 * s;
+        g.add(tr);
+        const c1 = sph(1.5 * s, COL.leaf);
+        c1.position.y = 2.7 * s;
+        g.add(c1);
+        const c2 = sph(1.1 * s, COL.leafDark);
+        c2.position.set(0.8 * s, 2.2 * s, 0.4 * s);
+        g.add(c2);
+        const c3 = sph(1.0 * s, COL.leaf);
+        c3.position.set(-0.7 * s, 2.4 * s, -0.3 * s);
+        g.add(c3);
+        g.position.set(x, 0, z);
+        scene.add(g);
+        addCollider(x, z, 1.2 * s, 1.2 * s);
+      }
+      function bush(x, z) {
+        const b = sph(0.7, COL.leafDark);
+        b.position.set(x, 0.5, z);
+        b.scale.y = 0.8;
+        scene.add(b);
+      }
+      function chair(x, z, rot, c) {
+        const g = new T.Group();
+        const seat = box(0.7, 0.12, 0.7, c);
+        seat.position.y = 0.5;
+        g.add(seat);
+        const back = box(0.7, 0.7, 0.12, c);
+        back.position.set(0, 0.85, -0.3);
+        g.add(back);
+        [
+          [-0.28, -0.28],
+          [0.28, -0.28],
+          [-0.28, 0.28],
+          [0.28, 0.28],
+        ].forEach(([lx, lz]) => {
+          const leg = box(0.1, 0.5, 0.1, COL.woodDark);
+          leg.position.set(lx, 0.25, lz);
+          g.add(leg);
+        });
+        g.position.set(x, 0, z);
+        g.rotation.y = rot;
+        scene.add(g);
+      }
+      function table(x, z, r = 1.1, c = COL.wood) {
+        const g = new T.Group();
+        const top = cyl(r, r, 0.16, c, 20);
+        top.position.y = 1.0;
+        g.add(top);
+        const post = cyl(0.16, 0.2, 1, COL.woodDark, 10);
+        post.position.y = 0.5;
+        g.add(post);
+        g.position.set(x, 0, z);
+        scene.add(g);
+        addCollider(x, z, r * 1.6, r * 1.6);
+      }
+      function rug(cx, cz, w, d, c) {
+        const m = new T.Mesh(
+          new T.PlaneGeometry(w, d),
+          mat(c, { roughness: 1 })
+        );
+        m.rotation.x = -Math.PI / 2;
+        m.position.set(cx, 0.03, cz);
+        m.receiveShadow = true;
+        scene.add(m);
+      }
+
+      // ---------- zones ----------
+      const ZONES = [
+        {
+          key: "meeting",
+          name: "Meeting Hall",
+          color: COL.meeting,
+          x: -16,
+          z: -14,
+          r: 8.5,
+          desc: "A round table for focused conversation. Step in to gather the group.",
+        },
+        {
+          key: "cafe",
+          name: "The Café",
+          color: COL.cafe,
+          x: 16,
+          z: -14,
+          r: 8.5,
+          desc: "Coffee, small tables, low chatter. Best place to bump into people.",
+        },
+        {
+          key: "games",
+          name: "Arcade",
+          color: COL.games,
+          x: 16,
+          z: 15,
+          r: 8.5,
+          desc: "A jukebox and a couple of machines. Loosen up between meetings.",
+        },
+        {
+          key: "garden",
+          name: "Quiet Garden",
+          color: COL.garden,
+          x: -16,
+          z: 15,
+          r: 8.5,
+          desc: "Trees, a bench, and a fountain. A calm spot to step away.",
+        },
+      ];
+      function zoneFloor(z) {
+        const ring = new T.Mesh(
+          new T.RingGeometry(z.r - 0.25, z.r, 48),
+          mat(z.color, {
+            roughness: 0.6,
+            emissive: z.color,
+            emissiveIntensity: 0.15,
+          })
+        );
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.set(z.x, 0.04, z.z);
+        scene.add(ring);
+        const disc = new T.Mesh(
+          new T.CircleGeometry(z.r - 0.25, 48),
+          mat(z.color, { transparent: true, opacity: 0.14 })
+        );
+        disc.rotation.x = -Math.PI / 2;
+        disc.position.set(z.x, 0.035, z.z);
+        scene.add(disc);
+        z._ring = ring;
+        // floating label
+        const spr = makeLabel(z.name, "#ffffff", hex(z.color), 22, true);
+        spr.position.set(z.x, 4.6, z.z);
+        spr.scale.multiplyScalar(1.15);
+        scene.add(spr);
+      }
+      function hex(n) {
+        return "#" + n.toString(16).padStart(6, "0");
+      }
+
+      // build zone contents
+      zoneFloor(ZONES[0]); // meeting
+      rug(-16, -14, 10, 10, 0xdf_e6_f2);
+      table(-16, -14, 1.9, COL.wood);
+      [0, 1, 2, 3, 4, 5].forEach((i) => {
+        const a = (i / 6) * Math.PI * 2;
+        chair(
+          -16 + Math.cos(a) * 3,
+          -14 + Math.sin(a) * 3,
+          -a + Math.PI / 2,
+          COL.meeting
+        );
+      });
+      // whiteboard (interactive)
+      const whiteboard = (() => {
+        const g = new T.Group();
+        const stand = box(0.15, 2.4, 0.15, COL.woodDark);
+        stand.position.set(-2, 1.2, 0);
+        g.add(stand);
+        const stand2 = box(0.15, 2.4, 0.15, COL.woodDark);
+        stand2.position.set(2, 1.2, 0);
+        g.add(stand2);
+        const bd = box(4.4, 2.2, 0.15, 0xff_ff_ff, { roughness: 0.4 });
+        bd.position.y = 2.1;
+        g.add(bd);
+        g.position.set(-16, 0, -20.5);
+        scene.add(g);
+        addCollider(-16, -20.5, 4.4, 0.6);
+        return g;
+      })();
+
+      zoneFloor(ZONES[1]); // cafe
+      rug(16, -14, 10, 10, 0xf6_e3_c8);
+      table(13.5, -15, 1.0, COL.wood);
+      chair(13.5, -13.3, Math.PI, COL.cafe);
+      chair(13.5, -16.7, 0, COL.cafe);
+      table(18.5, -13, 1.0, COL.wood);
+      chair(18.5, -11.3, Math.PI, COL.cafe);
+      chair(18.5, -14.7, 0, COL.cafe);
+      // counter
+      const counter = box(5, 1.1, 1.4, COL.woodDark);
+      counter.position.set(16, 0.55, -19);
+      counter.castShadow = true;
+      scene.add(counter);
+      addCollider(16, -19, 5, 1.4);
+      const cup = cyl(0.18, 0.14, 0.3, 0xff_ff_ff, 10);
+      cup.position.set(16, 1.25, -19);
+      scene.add(cup);
+
+      zoneFloor(ZONES[2]); // games
+      rug(16, 15, 10, 10, 0xea_dc_f7);
+      // jukebox (interactive)
+      const jukebox = (() => {
+        const g = new T.Group();
+        const body = box(1.6, 2.4, 1.0, COL.games);
+        body.position.y = 1.2;
+        g.add(body);
+        const screen = box(1.2, 0.9, 0.1, 0x2a_1f_3a, {
+          emissive: 0x5b_3a_8f,
+          emissiveIntensity: 0.6,
+        });
+        screen.position.set(0, 1.7, 0.52);
+        g.add(screen);
+        const disc = cyl(0.45, 0.45, 0.08, 0x18_14_1f, 20);
+        disc._spin = true;
+        disc.position.set(0, 0.75, 0.52);
+        disc.rotation.x = Math.PI / 2;
+        g.add(disc);
+        const dot = cyl(0.08, 0.08, 0.1, COL.cafe, 10);
+        dot.position.set(0.2, 0.75, 0.6);
+        dot.rotation.x = Math.PI / 2;
+        disc.add(dot);
+        g.position.set(19, 0, 18.5);
+        scene.add(g);
+        addCollider(19, 18.5, 1.6, 1);
+        g._disc = disc;
+        return g;
+      })();
+      // two arcade cabinets
+      [
+        [12.5, 18.5, 0],
+        [15, 18.8, 0.3],
+      ].forEach(([x, z, r]) => {
+        const c = box(1.2, 2.2, 1.1, COL.woodDark);
+        c.position.set(x, 1.1, z);
+        c.rotation.y = r;
+        c.castShadow = true;
+        scene.add(c);
+        addCollider(x, z, 1.2, 1.1);
+        const scr = box(0.9, 0.9, 0.1, 0x2_23, {
+          emissive: 0x22_88_aa,
+          emissiveIntensity: 0.5,
+        });
+        scr.position.set(x, 1.7, z + 0.55);
+        scr.rotation.y = r;
+        scene.add(scr);
+      });
+
+      zoneFloor(ZONES[3]); // garden
+      tree(-20, 11, 1.2);
+      tree(-12, 19, 1.0);
+      tree(-21, 19, 0.9);
+      tree(-11, 11, 0.8);
+      bush(-16, 11);
+      bush(-19, 15);
+      bush(-13, 16);
+      // bench
+      const bench = (() => {
+        const g = new T.Group();
+        const s = box(2.4, 0.15, 0.7, COL.wood);
+        s.position.y = 0.55;
+        g.add(s);
+        const b = box(2.4, 0.6, 0.12, COL.wood);
+        b.position.set(0, 0.9, -0.3);
+        g.add(b);
+        g.position.set(-16, 0, 16.5);
+        g.rotation.y = Math.PI;
+        scene.add(g);
+        addCollider(-16, 16.5, 2.4, 0.7);
+        return g;
+      })();
+
+      // central fountain (interactive-ish landmark)
+      const fountain = (() => {
+        const g = new T.Group();
+        const base = cyl(2.4, 2.6, 0.5, 0xdc_d3_c4, 24);
+        base.position.y = 0.25;
+        g.add(base);
+        const water = new T.Mesh(
+          new T.CircleGeometry(2.1, 32),
+          mat(COL.water, {
+            transparent: true,
+            opacity: 0.85,
+            roughness: 0.2,
+            metalness: 0.1,
+            emissive: COL.water,
+            emissiveIntensity: 0.12,
+          })
+        );
+        water.rotation.x = -Math.PI / 2;
+        water.position.y = 0.52;
+        g.add(water);
+        const post = cyl(0.35, 0.4, 1.4, 0xdc_d3_c4, 14);
+        post.position.y = 1.1;
+        g.add(post);
+        const bowl = cyl(0.9, 0.5, 0.3, 0xdc_d3_c4, 16);
+        bowl.position.y = 1.8;
+        g.add(bowl);
+        g.position.set(0, 0, 0);
+        scene.add(g);
+        addCollider(0, 0, 4.6, 4.6);
+        g._water = water;
+        return g;
+      })();
+
+      // scatter a few trees around plaza edges
+      tree(-24, -24, 1.1);
+      tree(24, -24, 1.0);
+      tree(24, 24, 1.1);
+      tree(-24, 24, 1.0);
+      tree(0, -26, 1.0);
+      tree(0, 26, 1.0);
+      tree(-26, 0, 0.9);
+      tree(26, 0, 0.9);
+
+      // ---------- avatar factory ----------
+      function makeAvatar(colorSkin, colorShirt) {
+        const g = new T.Group();
+        const body = cyl(0.42, 0.5, 1.0, colorShirt, 16);
+        body.position.y = 0.75;
+        g.add(body);
+        const head = sph(0.42, colorSkin);
+        head.position.y = 1.55;
+        g.add(head);
+        // simple hair cap
+        const hair = sph(0.44, 0x3a_2b_22);
+        hair.scale.y = 0.6;
+        hair.position.y = 1.72;
+        g.add(hair);
+        // feet
+        const f1 = box(0.24, 0.18, 0.34, COL.woodDark);
+        f1.position.set(-0.2, 0.09, 0.05);
+        g.add(f1);
+        const f2 = box(0.24, 0.18, 0.34, COL.woodDark);
+        f2.position.set(0.2, 0.09, 0.05);
+        g.add(f2);
+        // tiny nose to show facing direction
+        const nose = sph(0.09, colorSkin);
+        nose.position.set(0, 1.5, 0.4);
+        g.add(nose);
+        g.traverse((o) => {
+          if (o.isMesh) {
+            o.castShadow = true;
+          }
+        });
+        g._body = body;
+        g._head = head;
+        return g;
+      }
+      function makeLabel(text, fg, bg, size, pill) {
+        const pad = pill ? 18 : 0,
+          fontPx = 52;
+        const c = document.createElement("canvas");
+        const ctx = c.getContext("2d");
+        ctx.font = `600 ${fontPx}px Inter, sans-serif`;
+        const w = ctx.measureText(text).width;
+        c.width = w + pad * 2 + 8;
+        c.height = fontPx + pad + 8;
+        const x2 = ctx;
+        x2.font = `600 ${fontPx}px Inter, sans-serif`;
+        if (pill) {
+          roundRect(x2, 4, 4, c.width - 8, c.height - 8, 26);
+          x2.fillStyle = bg || "rgba(20,20,40,.75)";
+          x2.fill();
+        }
+        x2.fillStyle = fg || "#fff";
+        x2.textAlign = "center";
+        x2.textBaseline = "middle";
+        x2.font = `600 ${fontPx}px Inter, sans-serif`;
+        x2.fillText(text, c.width / 2, c.height / 2 + 2);
+        const tex = new T.CanvasTexture(c);
+        tex.anisotropy = 4;
+        const spr = new T.Sprite(
+          new T.SpriteMaterial({
+            map: tex,
+            transparent: true,
+            depthTest: false,
+          })
+        );
+        const sc = (size || 18) / 100;
+        spr.scale.set((c.width * sc) / 10, (c.height * sc) / 10, 1);
+        spr.center.set(0.5, 0);
+        spr._canvas = c;
+        spr._tex = tex;
+        return spr;
+      }
+      function roundRect(ctx, x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y, x + w, y + h, r);
+        ctx.arcTo(x + w, y + h, x, y + h, r);
+        ctx.arcTo(x, y + h, x, y, r);
+        ctx.arcTo(x, y, x + w, y, r);
+        ctx.closePath();
+      }
+
+      // ---------- player ----------
+      const player = makeAvatar(COL.skin[0], COL.coral);
+      player.position.set(0, 0, 7);
+      scene.add(player);
+      let playerName = "Saifullah";
+      const playerTag = makeLabel(playerName, "#fff", null, 16, true);
+      playerTag.position.y = 2.2;
+      player.add(playerTag);
+      // speech bubble sprite (hidden until used)
+      let bubble = null,
+        bubbleTimer = 0;
+
+      // ---------- NPCs (simulated presence) ----------
+      const NPC_DATA = [
+        {
+          name: "Areeba",
+          shirt: 0x59_b8_7e,
+          x: -15,
+          z: -13,
+          home: { x: -16, z: -14, r: 3 },
+          msg: "brb, grabbing notes",
+        },
+        {
+          name: "Bradd",
+          shirt: 0x5b_8d_ef,
+          x: 14,
+          z: -14,
+          home: { x: 16, z: -14, r: 3.5 },
+          msg: "coffee?",
+        },
+        {
+          name: "James",
+          shirt: 0xf0_a9_4b,
+          x: 0,
+          z: -4,
+          home: { x: 0, z: 0, r: 5 },
+          msg: "nice work today",
+        },
+        {
+          name: "Maya",
+          shirt: 0xa0_6f_e0,
+          x: 17,
+          z: 16,
+          home: { x: 16, z: 15, r: 3.5 },
+          msg: "high score!",
+        },
+        {
+          name: "Kenji",
+          shirt: 0xef_6f_5b,
+          x: -16,
+          z: 16,
+          home: { x: -16, z: 15, r: 3.5 },
+          msg: "so peaceful here",
+        },
+      ];
+      const npcs = [];
+      NPC_DATA.forEach((d, i) => {
+        const a = makeAvatar(COL.skin[(i + 1) % COL.skin.length], d.shirt);
+        a.position.set(d.x, 0, d.z);
+        const tag = makeLabel(d.name, "#fff", null, 14, true);
+        tag.position.y = 2.2;
+        a.add(tag);
+        scene.add(a);
+        npcs.push({
+          mesh: a,
+          data: d,
+          target: new T.Vector3(d.x, 0, d.z),
+          wait: Math.random() * 3,
+          phase: Math.random() * 7,
+          bubble: null,
+          bubbleTimer: 0,
+        });
+      });
+
+      function npcSpeak(n, text) {
+        if (n.bubble) {
+          n.mesh.remove(n.bubble);
+        }
+        const b = makeLabel(text, "#1f2438", "rgba(255,255,255,.94)", 13, true);
+        b.position.y = 2.75;
+        n.mesh.add(b);
+        n.bubble = b;
+        n.bubbleTimer = 3.2;
+      }
+
+      // ---------- input ----------
+      const keys = {};
+      addEventListener("keydown", (e) => {
+        if (e.target && e.target.tagName === "INPUT") {
+          if (e.key === "Enter" && e.target.id === "chatInput") {
+            sendChat();
+          }
+          if (e.key === "Escape" && e.target.id === "chatInput") {
+            closeChat();
+          }
+          return;
+        }
+        const k = e.key.toLowerCase();
+        if (k === "enter") {
+          openChat();
+          e.preventDefault();
+          return;
+        }
+        if (k === "e") {
+          tryInteract();
+          return;
+        }
+        keys[k] = true;
+        if (
+          ["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(k)
+        )
+          e.preventDefault();
+      });
+      addEventListener("keyup", (e) => {
+        keys[e.key.toLowerCase()] = false;
+      });
+
+      // mouse / touch look
+      let camYaw = 0,
+        dragging = false,
+        lastX = 0;
+      const dom = renderer.domElement;
+      dom.addEventListener("mousedown", (e) => {
+        dragging = true;
+        lastX = e.clientX;
+      });
+      addEventListener("mouseup", () => (dragging = false));
+      addEventListener("mousemove", (e) => {
+        if (dragging) {
+          camYaw -= (e.clientX - lastX) * 0.006;
+          lastX = e.clientX;
+        }
+      });
+      dom.addEventListener(
+        "touchstart",
+        (e) => {
+          dragging = true;
+          lastX = e.touches[0].clientX;
+        },
+        { passive: true }
+      );
+      addEventListener("touchend", () => (dragging = false));
+      addEventListener(
+        "touchmove",
+        (e) => {
+          if (dragging) {
+            camYaw -= (e.touches[0].clientX - lastX) * 0.006;
+            lastX = e.touches[0].clientX;
+          }
+        },
+        { passive: true }
+      );
+      let camDist = 20;
+      dom.addEventListener(
+        "wheel",
+        (e) => {
+          camDist = Math.max(11, Math.min(34, camDist + e.deltaY * 0.02));
+          e.preventDefault();
+        },
+        { passive: false }
+      );
+
+      // name editing
+      const nameInput = document.getElementById("nameInput");
+      nameInput.addEventListener("input", () => {
+        playerName = nameInput.value.trim() || "You";
+        player.remove(playerTag);
+        const nt = makeLabel(playerName, "#fff", null, 16, true);
+        nt.position.y = 2.2;
+        player.add(nt);
+        playerTagRef.spr = nt;
+      });
+      const playerTagRef = { spr: playerTag };
+
+      // chat
+      const chatBar = document.getElementById("chatBar");
+      const chatInput = document.getElementById("chatInput");
+      function openChat() {
+        chatBar.classList.add("show");
+        setTimeout(() => chatInput.focus(), 30);
+      }
+      function closeChat() {
+        chatBar.classList.remove("show");
+        chatInput.value = "";
+        chatInput.blur();
+      }
+      function sendChat() {
+        const t = chatInput.value.trim();
+        if (t) {
+          playerSpeak(t);
+        }
+        closeChat();
+      }
+      document.getElementById("chatSend").addEventListener("click", sendChat);
+      function playerSpeak(text) {
+        if (bubble) player.remove(bubble);
+        bubble = makeLabel(text, "#1f2438", "rgba(255,255,255,.94)", 13, true);
+        bubble.position.y = 2.75;
+        player.add(bubble);
+        bubbleTimer = 3.5;
+      }
+
+      // ---------- interaction ----------
+      const interactables = [
+        {
+          name: "Whiteboard",
+          x: -16,
+          z: -20.5,
+          r: 3.2,
+          action: () => {
+            const ideas = [
+              "Sketched the Q3 roadmap ✦",
+              "Wrote “ship the campaign” ✦",
+              "Drew a very confident arrow ↗",
+              "Erased everything. Fresh start.",
+            ];
+            toast(ideas[Math.floor(Math.random() * ideas.length)]);
+          },
+        },
+        {
+          name: "Jukebox",
+          x: 19,
+          z: 18.5,
+          r: 3,
+          action: () => {
+            const tracks = [
+              "♫ now playing: Lo-fi Commons",
+              "♫ now playing: Synth Sunset",
+              "♫ now playing: Café Jazz",
+              "♫ jukebox paused",
+            ];
+            jukebox._playing = !jukebox._playing;
+            toast(tracks[Math.floor(Math.random() * tracks.length)]);
+          },
+        },
+        {
+          name: "Fountain",
+          x: 0,
+          z: 0,
+          r: 3.6,
+          action: () => {
+            toast("You tossed a coin in. Make a wish ✦");
+            playerSpeak("🪙");
+          },
+        },
+      ];
+      let nearInteract = null;
+      const promptEl = document.getElementById("prompt"),
+        promptText = document.getElementById("promptText");
+      function tryInteract() {
+        if (nearInteract) nearInteract.action();
+      }
+
+      const toastEl = document.getElementById("toast");
+      let toastTimer = 0;
+      function toast(msg) {
+        toastEl.textContent = msg;
+        toastEl.classList.add("show");
+        toastTimer = 2.6;
+      }
+
+      // ---------- zone HUD ----------
+      const zoneCard = document.getElementById("zoneCard");
+      const zTitle = document.getElementById("zTitle"),
+        zDesc = document.getElementById("zDesc"),
+        zSwatch = document.getElementById("zSwatch"),
+        zHere = document.getElementById("zHere");
+      let currentZone = null;
+      function setZone(z) {
+        if (z === currentZone) {
+          updateHere(z);
+          return;
+        }
+        currentZone = z;
+        if (!z) {
+          zoneCard.classList.remove("show");
+          return;
+        }
+        zTitle.textContent = z.name;
+        zDesc.textContent = z.desc;
+        zSwatch.style.background = hex(z.color);
+        updateHere(z);
+        zoneCard.classList.add("show");
+      }
+      function updateHere(z) {
+        if (!z) return;
+        const here = npcs
+          .filter((n) => dist2(n.mesh.position, z) < z.r * z.r)
+          .map((n) => n.data.name);
+        here.unshift(playerName);
+        zHere.innerHTML =
+          '<span style="color:#9599a8">here now</span>' +
+          here
+            .map((n) => `<span class="chip">${escapeHtml(n)}</span>`)
+            .join("");
+      }
+      function escapeHtml(s) {
+        return s.replace(
+          /[&<>"]/g,
+          (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]
+        );
+      }
+      function dist2(p, z) {
+        const dx = p.x - z.x,
+          dz = p.z - z.z;
+        return dx * dx + dz * dz;
+      }
+
+      // ---------- collision resolve ----------
+      const PR = 0.5; // player radius
+      function collides(x, z) {
+        for (const c of colliders) {
+          if (
+            x > c.minX - PR &&
+            x < c.maxX + PR &&
+            z > c.minZ - PR &&
+            z < c.maxZ + PR
+          )
+            return true;
+        }
+        return false;
+      }
+
+      // ---------- minimap ----------
+      const mm = document.getElementById("minimap"),
+        mx = mm.getContext("2d");
+      const MMR = mm.width,
+        MSCALE = MMR / (WORLD + 4);
+      function w2m(v) {
+        return MMR / 2 + v * MSCALE;
+      }
+      function drawMinimap() {
+        mx.clearRect(0, 0, MMR, MMR);
+        mx.fillStyle = "#e9e1d1";
+        mx.fillRect(0, 0, MMR, MMR);
+        // plaza
+        mx.fillStyle = "#f6ede0";
+        mx.fillRect(w2m(-10), w2m(-10), 20 * MSCALE, 20 * MSCALE);
+        // zones
+        ZONES.forEach((z) => {
+          mx.beginPath();
+          mx.fillStyle = hex(z.color) + "55";
+          mx.arc(w2m(z.x), w2m(z.z), z.r * MSCALE, 0, 7);
+          mx.fill();
+          mx.beginPath();
+          mx.strokeStyle = hex(z.color);
+          mx.lineWidth = 1.4;
+          mx.arc(w2m(z.x), w2m(z.z), z.r * MSCALE, 0, 7);
+          mx.stroke();
+        });
+        // npcs
+        npcs.forEach((n) => {
+          mx.beginPath();
+          mx.fillStyle = "#7b8194";
+          mx.arc(w2m(n.mesh.position.x), w2m(n.mesh.position.z), 2.4, 0, 7);
+          mx.fill();
+        });
+        // player
+        mx.beginPath();
+        mx.fillStyle = hex(COL.coral);
+        mx.arc(w2m(player.position.x), w2m(player.position.z), 3.6, 0, 7);
+        mx.fill();
+        mx.strokeStyle = "#fff";
+        mx.lineWidth = 1.6;
+        mx.stroke();
+      }
+
+      // ---------- animation loop ----------
+      const clock = new T.Clock();
+      let walkPhase = 0;
+      function tick() {
+        const dt = Math.min(clock.getDelta(), 0.05);
+        const t = clock.elapsedTime;
+
+        // --- movement ---
+        let ix = 0,
+          iz = 0;
+        if (keys["w"] || keys["arrowup"]) iz -= 1;
+        if (keys["s"] || keys["arrowdown"]) iz += 1;
+        if (keys["a"] || keys["arrowleft"]) ix -= 1;
+        if (keys["d"] || keys["arrowright"]) ix += 1;
+        const moving = ix || iz;
+
+        // camera-relative basis
+        const fwd = new T.Vector3(Math.sin(camYaw), 0, Math.cos(camYaw));
+        const right = new T.Vector3(fwd.z, 0, -fwd.x);
+        const move = new T.Vector3();
+        move.addScaledVector(fwd, -iz).addScaledVector(right, ix);
+        if (move.lengthSq() > 0) {
+          move.normalize();
+          const spd = 6.2 * dt;
+          const nx = player.position.x + move.x * spd;
+          const nz = player.position.z + move.z * spd;
+          const lim = 28.5;
+          if (!collides(nx, player.position.z) && Math.abs(nx) < lim)
+            player.position.x = nx;
+          if (!collides(player.position.x, nz) && Math.abs(nz) < lim)
+            player.position.z = nz;
+          // face direction
+          const targetRot = Math.atan2(move.x, move.z);
+          player.rotation.y = lerpAngle(player.rotation.y, targetRot, 0.2);
+          walkPhase += dt * 10;
+        } else walkPhase *= 0.8;
+        // walk bob
+        player.position.y =
+          Math.abs(Math.sin(walkPhase)) * 0.08 * (moving ? 1 : 0);
+        player._body.rotation.z = Math.sin(walkPhase) * 0.05 * (moving ? 1 : 0);
+
+        // --- camera follow ---
+        const camTarget = new T.Vector3(
+          player.position.x - Math.sin(camYaw) * camDist,
+          camDist * 0.72,
+          player.position.z - Math.cos(camYaw) * camDist
+        );
+        camera.position.lerp(camTarget, 0.12);
+        camera.lookAt(
+          player.position.x,
+          player.position.y + 1.2,
+          player.position.z
+        );
+
+        // --- zone detection ---
+        let inZone = null;
+        for (const z of ZONES) {
+          if (dist2(player.position, z) < z.r * z.r) {
+            inZone = z;
+            break;
+          }
+        }
+        setZone(inZone);
+        ZONES.forEach((z) => {
+          const on = z === inZone;
+          z._ring.material.emissiveIntensity +=
+            ((on ? 0.55 : 0.15) - z._ring.material.emissiveIntensity) * 0.15;
+          z._ring.scale.setScalar(1 + (on ? 0.02 * Math.sin(t * 4) : 0));
+        });
+
+        // --- interactable proximity ---
+        let ni = null,
+          best = 99;
+        for (const it of interactables) {
+          const dx = player.position.x - it.x,
+            dz = player.position.z - it.z;
+          const d = dx * dx + dz * dz;
+          if (d < it.r * it.r && d < best) {
+            best = d;
+            ni = it;
+          }
+        }
+        nearInteract = ni;
+        if (ni) {
+          promptText.textContent = ni.name;
+          promptEl.classList.add("show");
+        } else promptEl.classList.remove("show");
+
+        // --- npc wandering ---
+        npcs.forEach((n) => {
+          n.phase += dt;
+          const p = n.mesh.position;
+          const to = n.target.clone().sub(p);
+          to.y = 0;
+          if (to.length() < 0.4) {
+            n.wait -= dt;
+            if (n.wait <= 0) {
+              // pick new target in home area
+              const h = n.data.home;
+              n.target.set(
+                h.x + (Math.random() * 2 - 1) * h.r,
+                0,
+                h.z + (Math.random() * 2 - 1) * h.r
+              );
+              n.wait = 1.5 + Math.random() * 3.5;
+              if (Math.random() < 0.25) npcSpeak(n, n.data.msg);
+            }
+          } else {
+            to.normalize();
+            const step = 2.0 * dt;
+            const nx = p.x + to.x * step,
+              nz = p.z + to.z * step;
+            if (!collides(nx, p.z)) p.x = nx;
+            if (!collides(p.x, nz)) p.z = nz;
+            n.mesh.rotation.y = lerpAngle(
+              n.mesh.rotation.y,
+              Math.atan2(to.x, to.z),
+              0.15
+            );
+            p.y = Math.abs(Math.sin(n.phase * 9)) * 0.06;
+          }
+          if (n.bubbleTimer > 0) {
+            n.bubbleTimer -= dt;
+            if (n.bubbleTimer <= 0 && n.bubble) {
+              n.mesh.remove(n.bubble);
+              n.bubble = null;
+            }
+          }
+        });
+
+        // proximity greeting: npc waves hello if player is very close
+        npcs.forEach((n) => {
+          const dx = player.position.x - n.mesh.position.x,
+            dz = player.position.z - n.mesh.position.z;
+          if (
+            dx * dx + dz * dz < 3.2 &&
+            n.bubbleTimer <= 0 &&
+            Math.random() < 0.004
+          ) {
+            npcSpeak(
+              n,
+              ["👋", "hey!", "hi " + playerName.split(" ")[0]][
+                Math.floor(Math.random() * 3)
+              ]
+            );
+          }
+        });
+
+        // --- bubbles / toast timers ---
+        if (bubbleTimer > 0) {
+          bubbleTimer -= dt;
+          if (bubbleTimer <= 0 && bubble) {
+            player.remove(bubble);
+            bubble = null;
+          }
+        }
+        if (toastTimer > 0) {
+          toastTimer -= dt;
+          if (toastTimer <= 0) toastEl.classList.remove("show");
+        }
+
+        // --- ambient anims ---
+        if (jukebox._disc)
+          jukebox._disc.rotation.z += dt * (jukebox._playing ? 6 : 1.2);
+        if (fountain._water) {
+          fountain._water.material.opacity = 0.75 + Math.sin(t * 2) * 0.1;
+          fountain._water.position.y = 0.52 + Math.sin(t * 2) * 0.02;
+        }
+
+        drawMinimap();
+        renderer.render(scene, camera);
+        requestAnimationFrame(tick);
+      }
+
+      function lerpAngle(a, b, t) {
+        let d = b - a;
+        while (d > Math.PI) d -= 2 * Math.PI;
+        while (d < -Math.PI) d += 2 * Math.PI;
+        return a + d * t;
+      }
+
+      // ---------- resize ----------
+      addEventListener("resize", () => {
+        camera.aspect = innerWidth / innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(innerWidth, innerHeight);
+      });
+
+      // ---------- boot ----------
+      camera.position.set(0, 15, 26);
+      camera.lookAt(0, 1, 7);
+      setTimeout(() => {
+        document.getElementById("boot").classList.add("hide");
+      }, 700);
+      tick();
+    })();
+    </script>
+  </body>
+</html>
